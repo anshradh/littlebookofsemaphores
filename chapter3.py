@@ -107,12 +107,11 @@ for t in threads:
 count = 0
 mutex = Lock()
 barrier1 = Semaphore(0)
-barrier2 = Semaphore(1)
+barrier2 = Semaphore(2)
 
 
-def thread_i(n):
+def thread_f(n):
     global count
-
     mutex.acquire()
     count += 1
     if count == n:
@@ -120,9 +119,8 @@ def thread_i(n):
         barrier1.release()
     mutex.release()
     barrier1.acquire()
-    barrier1.release()
-
     print(count)
+    barrier1.release()
 
     mutex.acquire()
     count -= 1
@@ -131,18 +129,19 @@ def thread_i(n):
         barrier2.release()
     mutex.release()
     barrier2.acquire()
+    print(count)
     barrier2.release()
 
 
-# n = 5
-for l in range(2):
+for i in range(3):
     threads = []
-    for i in range(5):
-        t = Thread(target=thread_i, args=(5,))
-        threads.append(t)
+    for _ in range(5):
+        t = Thread(target=thread_f, args=(5,))
         t.start()
+        threads.append(t)
     for t in threads:
         t.join()
+
 
 # %%
 # Queue
@@ -172,51 +171,56 @@ for i in range(5):
 
 # %%
 # Exclusive paired
-leaderQueue = Semaphore(0)
-followerQueue = Semaphore(0)
-mutex = Lock()
+leaderQ = Semaphore(0)
+followerQ = Semaphore(0)
 leaderCount = 0
 followerCount = 0
+mutex = Lock()
 rendezvous = Semaphore(0)
 
 
-def leaderThread():
-    global followerCount
+def leader_thread():
     global leaderCount
+    global followerCount
+
     mutex.acquire()
     if followerCount > 0:
         followerCount -= 1
-        followerQueue.release()
+        followerQ.release()
     else:
         leaderCount += 1
         mutex.release()
-        leaderQueue.acquire()
-    print("Leader paired")
+        leaderQ.acquire()
+
+    print("Pair complete (leader)")
     rendezvous.acquire()
     mutex.release()
 
 
-def followerThread():
-    global followerCount
+def follower_thread():
     global leaderCount
+    global followerCount
     mutex.acquire()
     if leaderCount > 0:
         leaderCount -= 1
-        leaderQueue.release()
+        leaderQ.release()
     else:
         followerCount += 1
         mutex.release()
-        followerQueue.acquire()
-    print("Follower paired")
+        followerQ.acquire()
+
+    print("Pair complete (follower)")
     rendezvous.release()
 
 
-for i in range(5):
-    leader = Thread(target=leaderThread)
-    follower = Thread(target=followerThread)
+threads = []
+for _ in range(5):
+    leader = Thread(target=leader_thread)
+    follower = Thread(target=follower_thread)
     leader.start()
     follower.start()
     leader.join()
     follower.join()
+
 
 # %%
