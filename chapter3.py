@@ -107,7 +107,7 @@ for t in threads:
 count = 0
 mutex = Lock()
 barrier1 = Semaphore(0)
-barrier2 = Semaphore(2)
+barrier2 = Semaphore(1)
 
 
 def thread_f(n):
@@ -119,9 +119,8 @@ def thread_f(n):
         barrier1.release()
     mutex.release()
     barrier1.acquire()
-    print(count)
     barrier1.release()
-
+    print("Critical section")
     mutex.acquire()
     count -= 1
     if count == 0:
@@ -129,7 +128,6 @@ def thread_f(n):
         barrier2.release()
     mutex.release()
     barrier2.acquire()
-    print(count)
     barrier2.release()
 
 
@@ -137,6 +135,56 @@ for i in range(3):
     threads = []
     for _ in range(5):
         t = Thread(target=thread_f, args=(5,))
+        t.start()
+        threads.append(t)
+    for t in threads:
+        t.join()
+# %%
+class Barrier:
+    def __init__(self, n):
+        self.n = n
+        self.count = count
+        self.mutex = Lock()
+        self.t1 = Semaphore(0)
+        self.t2 = Semaphore(1)
+
+    def phase1(self):
+        self.mutex.acquire()
+        self.count += 1
+        if self.count == self.n:
+            for _ in range(self.n):
+                self.t1.release()
+        self.mutex.release()
+        self.t1.acquire()
+
+    def phase2(self):
+        self.mutex.acquire()
+        self.count -= 1
+        if self.count == 0:
+            for _ in range(self.n):
+                self.t2.release()
+        self.mutex.release()
+        self.t2.acquire()
+
+    def wait(self):
+        self.phase1()
+        self.phase2()
+
+
+# %%
+barrier = Barrier(5)
+
+
+def thread_f():
+    barrier.phase1()
+    print("Critical Section")
+    barrier.phase2()
+
+
+for i in range(3):
+    threads = []
+    for _ in range(5):
+        t = Thread(target=thread_f)
         t.start()
         threads.append(t)
     for t in threads:
@@ -171,45 +219,42 @@ for i in range(5):
 
 # %%
 # Exclusive paired
-leaderQ = Semaphore(0)
-followerQ = Semaphore(0)
-leaderCount = 0
-followerCount = 0
 mutex = Lock()
+leader_count = 0
+follower_count = 0
+leader_queue = Semaphore(0)
+follower_queue = Semaphore(0)
 rendezvous = Semaphore(0)
 
 
 def leader_thread():
-    global leaderCount
-    global followerCount
-
+    global leader_count, follower_count
     mutex.acquire()
-    if followerCount > 0:
-        followerCount -= 1
-        followerQ.release()
+    if follower_count > 0:
+        follower_count -= 1
+        follower_queue.release()
     else:
-        leaderCount += 1
+        leader_count += 1
         mutex.release()
-        leaderQ.acquire()
+        leader_queue.acquire()
 
-    print("Pair complete (leader)")
+    print("Leader dancing")
     rendezvous.acquire()
     mutex.release()
 
 
 def follower_thread():
-    global leaderCount
-    global followerCount
+    global leader_count, follower_count
     mutex.acquire()
-    if leaderCount > 0:
-        leaderCount -= 1
-        leaderQ.release()
+    if leader_count > 0:
+        leader_count -= 1
+        leader_queue.release()
     else:
-        followerCount += 1
+        follower_count += 1
         mutex.release()
-        followerQ.acquire()
+        follower_queue.acquire()
 
-    print("Pair complete (follower)")
+    print("Follower dancing")
     rendezvous.release()
 
 
