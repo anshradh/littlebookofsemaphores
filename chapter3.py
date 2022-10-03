@@ -193,19 +193,19 @@ for i in range(3):
 
 # %%
 # Queue
-leaderQueue = Semaphore(0)
-followerQueue = Semaphore(0)
+leader_queue = Semaphore(0)
+follower_queue = Semaphore(0)
 
 
 def leaderThread():
-    followerQueue.release()
-    leaderQueue.acquire()
+    follower_queue.release()
+    leader_queue.acquire()
     print("Leader paired")
 
 
 def followerThread():
-    followerQueue.acquire()
-    leaderQueue.release()
+    follower_queue.acquire()
+    leader_queue.release()
     print("Follower paired")
 
 
@@ -220,31 +220,15 @@ for i in range(5):
 # %%
 # Exclusive paired
 mutex = Lock()
-leader_count = 0
 follower_count = 0
-leader_queue = Semaphore(0)
+leader_count = 0
 follower_queue = Semaphore(0)
+leader_queue = Semaphore(0)
 rendezvous = Semaphore(0)
 
 
-def leader_thread():
-    global leader_count, follower_count
-    mutex.acquire()
-    if follower_count > 0:
-        follower_count -= 1
-        follower_queue.release()
-    else:
-        leader_count += 1
-        mutex.release()
-        leader_queue.acquire()
-
-    print("Leader dancing")
-    rendezvous.acquire()
-    mutex.release()
-
-
 def follower_thread():
-    global leader_count, follower_count
+    global follower_count, leader_count
     mutex.acquire()
     if leader_count > 0:
         leader_count -= 1
@@ -254,7 +238,23 @@ def follower_thread():
         mutex.release()
         follower_queue.acquire()
 
-    print("Follower dancing")
+    print("Follower Dancing")
+    rendezvous.acquire()
+    mutex.release()
+
+
+def leader_thread():
+    global follower_count, leader_count
+    mutex.acquire()
+    if follower_count > 0:
+        follower_count -= 1
+        follower_queue.release()
+    else:
+        leader_count += 1
+        mutex.release()
+        leader_queue.acquire()
+
+    print("Leader Dancing")
     rendezvous.release()
 
 
