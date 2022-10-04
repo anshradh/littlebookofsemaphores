@@ -144,3 +144,132 @@ for r in readers:
     r.join()
 
 # %%
+class Lightswitch:
+    def __init__(self):
+        self.count = 0
+        self.mutex = Lock()
+
+    def lock(self, semaphore):
+        self.mutex.acquire()
+        self.count += 1
+        if self.count == 1:
+            semaphore.acquire()
+        self.mutex.release()
+
+    def unlock(self, semaphore):
+        self.mutex.acquire()
+        self.count -= 1
+        if self.count == 0:
+            semaphore.release()
+        self.mutex.release()
+
+
+# %%
+data = dict()
+empty = Lock()
+lightswitch = Lightswitch()
+
+
+def writer_thread(key, val):
+    empty.acquire()
+    data[key] = val
+    empty.release()
+
+
+def reader_thread(key):
+    lightswitch.lock(empty)
+    sleep(random.uniform(1, 3))
+    print(data[key])
+    lightswitch.unlock(empty)
+
+
+readers = []
+for r in range(5):
+    r_t = Thread(target=reader_thread, args=(r % 3,))
+    readers.append(r_t)
+
+writers = []
+for w in range(3):
+    w_t = Thread(target=writer_thread, args=(w, w * 2))
+    writers.append(w_t)
+
+for w in writers:
+    w.start()
+    w.join()
+
+for r in readers:
+    r.start()
+    r.join()
+# %%
+# no-starve readers and writers
+data = dict()
+empty = Lock()
+lightswitch = Lightswitch()
+turnstile = Semaphore(1)
+
+
+def writer_thread(key, val):
+    turnstile.acquire()
+    empty.acquire()
+    data[key] = val
+    turnstile.release()
+    empty.release()
+
+
+def reader_thread(key):
+    turnstile.acquire()
+    turnstile.release()
+    lightswitch.lock(empty)
+    sleep(random.uniform(1, 2))
+    print(data[key])
+    lightswitch.unlock(empty)
+
+
+readers = []
+for r in range(5):
+    r_t = Thread(target=reader_thread, args=(r % 3,))
+    readers.append(r_t)
+
+writers = []
+for w in range(3):
+    w_t = Thread(target=writer_thread, args=(w, w * 2))
+    writers.append(w_t)
+
+for w in writers:
+    w.start()
+    w.join()
+
+for r in readers:
+    r.start()
+    r.join()
+
+# %%
+# priority to writers
+
+
+
+def writer_thread(key, val):
+
+
+
+def reader_thread(key):
+
+
+
+readers = []
+for r in range(5):
+    r_t = Thread(target=reader_thread, args=(r % 3,))
+    readers.append(r_t)
+
+writers = []
+for w in range(3):
+    w_t = Thread(target=writer_thread, args=(w, w * 2))
+    writers.append(w_t)
+
+for w in writers:
+    w.start()
+    w.join()
+
+for r in readers:
+    r.start()
+    r.join()
