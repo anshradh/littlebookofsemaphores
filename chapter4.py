@@ -204,25 +204,25 @@ for r in readers:
 # no-starve readers and writers
 data = dict()
 empty = Lock()
-lightswitch = Lightswitch()
 turnstile = Semaphore(1)
+reader_switch = Lightswitch()
 
 
 def writer_thread(key, val):
     turnstile.acquire()
     empty.acquire()
     data[key] = val
-    turnstile.release()
     empty.release()
+    turnstile.release()
 
 
 def reader_thread(key):
     turnstile.acquire()
     turnstile.release()
-    lightswitch.lock(empty)
-    sleep(random.uniform(1, 2))
+    reader_switch.lock(empty)
     print(data[key])
-    lightswitch.unlock(empty)
+    sleep(random.uniform(0.5, 1.5))
+    reader_switch.unlock(empty)
 
 
 readers = []
@@ -246,14 +246,27 @@ for r in readers:
 # %%
 # priority to writers
 
+read_switch = Lightswitch()
+write_switch = Lightswitch()
+empty_readers = Lock()
+empty_writers = Lock()
 
 
 def writer_thread(key, val):
-
+    write_switch.lock(empty_readers)
+    empty_writers.acquire()
+    data[key] = val
+    empty_writers.release()
+    write_switch.unlock(empty_readers)
 
 
 def reader_thread(key):
-
+    empty_readers.acquire()
+    read_switch.lock(empty_writers)
+    empty_readers.release()
+    print(data[key])
+    sleep(random.uniform(0.5, 1.5))
+    read_switch.unlock(empty_writers)
 
 
 readers = []
@@ -273,3 +286,50 @@ for w in writers:
 for r in readers:
     r.start()
     r.join()
+
+# %%
+# No-starve mutex
+turnstile_1 = Semaphore(1)
+turnstile_2 = Semaphore(0)
+mutex = Lock()
+count_1 = 0
+count_2 = 0
+
+
+def thread_():
+    global count_1, count_2
+    mutex.acquire()
+    count_1 += 1
+    mutex.release()
+    turnstile_1.acquire()
+    count_2 += 1
+    mutex.acquire()
+    count_1 -= 1
+    if count_1 == 0:
+        mutex.release()
+        turnstile_2.release()
+    else:
+        mutex.release()
+        turnstile_1.release()
+
+    turnstile_2.acquire()
+
+    print("Critical Section")
+
+    count_2 -= 1
+    if count_2 == 0:
+        turnstile_1.release()
+    else:
+        turnstile_2.release()
+
+
+threads = []
+for _ in range(10):
+    t = Thread(target=thread_)
+    t.start()
+    threads.append(t)
+
+for t in threads:
+    t.join()
+
+# %%
